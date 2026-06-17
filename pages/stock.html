@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Stock — RetailPro</title>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Sora:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+<div class="app-layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="main-content">
+    <div class="topbar" id="topbar"></div>
+    <div class="page-content">
+      <div class="page-header">
+        <div>
+          <div class="page-title">🏪 Stock Management</div>
+          <div class="page-subtitle">Monitor inventory levels</div>
+        </div>
+        <div style="display:flex;gap:10px">
+          <div class="search-box">
+            <span class="search-icon">🔍</span>
+            <input class="search-input" type="text" id="searchInput" placeholder="Search stock..." oninput="filterTable('searchInput','stockTable')">
+          </div>
+          <button class="btn btn-outline" onclick="filterLow()">⚠️ Low Stock</button>
+        </div>
+      </div>
+
+      <!-- Stats -->
+      <div class="stats-grid" id="stockStats" style="grid-template-columns:repeat(4,1fr)"></div>
+
+      <div class="card" style="padding:0;margin-top:16px">
+        <div class="table-wrapper">
+          <table id="stockTable">
+            <thead>
+              <tr><th>#</th><th>Product</th><th>Category</th><th>Price</th><th>Qty Available</th><th>Stock Value</th><th>Status</th><th>Actions</th></tr>
+            </thead>
+            <tbody id="stockTbody">
+              <tr><td colspan="8" style="text-align:center;padding:32px;color:#94A3B8">Loading...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Stock Modal -->
+<div class="modal-overlay" id="editModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Update Stock Quantity</div>
+      <button class="modal-close" onclick="closeModal('editModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="editId" />
+      <div class="form-group">
+        <label class="form-label">Product</label>
+        <input class="form-control" id="editName" disabled />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Available Quantity</label>
+        <input class="form-control" id="editQty" type="number" min="0" />
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('editModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="updateStock()">Update Stock</button>
+    </div>
+  </div>
+</div>
+
+<script src="/js/app.js"></script>
+<script>
+let allStock = [];
+
+(async () => {
+  const user = await checkAuth();
+  if (!user) return;
+  document.getElementById('sidebar').innerHTML = buildSidebar(user, 'stock');
+  document.getElementById('topbar').innerHTML = buildTopbar('🏪 Stock');
+  loadStock();
+})();
+
+async function loadStock() {
+  const res = await api('/api/stock');
+  if (!res?.success) return;
+  allStock = res.data;
+
+  const total = allStock.length;
+  const lowCount = allStock.filter(s => s.available_quantity < 20).length;
+  const outCount = allStock.filter(s => s.available_quantity === 0).length;
+  const totalValue = allStock.reduce((s, i) => s + Number(i.stock_value), 0);
+
+  document.getElementById('stockStats').innerHTML = `
+    <div class="stat-card"><div class="stat-icon" style="background:#DBEAFE">📦</div><div><div class="stat-value">${total}</div><div class="stat-label">Total Products</div></div></div>
+    <div class="stat-card"><div class="stat-icon" style="background:#FEE2E2">⚠️</div><div><div class="stat-value">${lowCount}</div><div class="stat-label">Low Stock (&lt;20)</div></div></div>
+    <div class="stat-card"><div class="stat-icon" style="background:#FEF3C7">🚫</div><div><div class="stat-value">${outCount}</div><div class="stat-label">Out of Stock</div></div></div>
+    <div class="stat-card"><div class="stat-icon" style="background:#D1FAE5">💵</div><div><div class="stat-value">${formatCurrency(totalValue)}</div><div class="stat-label">Total Stock Value</div></div></div>
+  `;
+
+  renderStock(allStock);
+}
+
+function renderStock(data) {
+  const tbody = document.getElementById('stockTbody');
+  tbody.innerHTML = data.map(s => {
+    const qty = s.available_quantity;
+    let status, badgeClass;
+    if (qty === 0) { status = '🚫 Out of Stock'; badgeClass = 'badge-danger'; }
+    else if (qty < 20) { status = '⚠️ Low Stock'; badgeClass = 'badge-warning'; }
+    else { status = '✅ In Stock'; badgeClass = 'badge-success'; }
+    return `
+      <tr>
+        <td><span style="color:#94A3B8;font-size:12px">${s.product_id}</span></td>
+        <td><strong>${s.name}</strong></td>
+        <td><span class="badge badge-info">${s.category}</span></td>
+        <td>${formatCurrency(s.price)}</td>
+        <td><strong style="font-size:15px">${qty}</strong></td>
+        <td>${formatCurrency(s.stock_value)}</td>
+        <td><span class="badge ${badgeClass}">${status}</span></td>
+        <td>
+          <button class="btn btn-outline btn-sm" onclick="editStock(${s.product_id},'${s.name.replace(/'/g,"\\'")}',${qty})">✏️ Update</button>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function filterLow() {
+  renderStock(allStock.filter(s => s.available_quantity < 20));
+  document.getElementById('searchInput').value = '';
+}
+
+function editStock(id, name, qty) {
+  document.getElementById('editId').value = id;
+  document.getElementById('editName').value = name;
+  document.getElementById('editQty').value = qty;
+  openModal('editModal');
+}
+
+async function updateStock() {
+  const id = document.getElementById('editId').value;
+  const qty = parseInt(document.getElementById('editQty').value);
+  if (isNaN(qty) || qty < 0) { showToast('Enter valid quantity', 'error'); return; }
+  const res = await api(`/api/stock/${id}`, 'PUT', { available_quantity: qty });
+  if (res?.success) { showToast('Stock updated!'); closeModal('editModal'); loadStock(); }
+  else showToast(res?.message || 'Error', 'error');
+}
+</script>
+</body>
+</html>

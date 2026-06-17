@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Products — RetailPro</title>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Sora:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+<div class="app-layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="main-content">
+    <div class="topbar" id="topbar"></div>
+    <div class="page-content">
+      <div class="page-header">
+        <div>
+          <div class="page-title">📦 Products</div>
+          <div class="page-subtitle">Manage your product catalog</div>
+        </div>
+        <div style="display:flex;gap:10px;align-items:center">
+          <div class="search-box">
+            <span class="search-icon">🔍</span>
+            <input class="search-input" type="text" id="searchInput" placeholder="Search products..." oninput="filterTable('searchInput','productsTable')">
+          </div>
+          <button class="btn btn-primary" onclick="openModal('addModal')">+ Add Product</button>
+        </div>
+      </div>
+
+      <div class="card" style="padding:0">
+        <div class="table-wrapper">
+          <table id="productsTable">
+            <thead>
+              <tr>
+                <th>#</th><th>Name</th><th>Category</th><th>Price</th><th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="productsTbody">
+              <tr><td colspan="5" style="text-align:center;padding:32px;color:#94A3B8">Loading...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Add Modal -->
+<div class="modal-overlay" id="addModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Add New Product</div>
+      <button class="modal-close" onclick="closeModal('addModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Product Name</label>
+        <input class="form-control" id="addName" placeholder="e.g. Surf Excel 1kg" />
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Category</label>
+          <select class="form-control" id="addCategory">
+            <option value="">Select category</option>
+            <option>Detergent</option><option>Personal Care</option><option>Oral Care</option>
+            <option>Food</option><option>Grocery</option><option>Beverage</option>
+            <option>Dairy</option><option>Chocolate</option><option>Health</option>
+            <option>Cleaning</option><option>Household</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Price (₹)</label>
+          <input class="form-control" id="addPrice" type="number" min="0" step="0.01" placeholder="0.00" />
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('addModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="addProduct()">Add Product</button>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Modal -->
+<div class="modal-overlay" id="editModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Edit Product</div>
+      <button class="modal-close" onclick="closeModal('editModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="editId" />
+      <div class="form-group">
+        <label class="form-label">Product Name</label>
+        <input class="form-control" id="editName" />
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Category</label>
+          <select class="form-control" id="editCategory">
+            <option>Detergent</option><option>Personal Care</option><option>Oral Care</option>
+            <option>Food</option><option>Grocery</option><option>Beverage</option>
+            <option>Dairy</option><option>Chocolate</option><option>Health</option>
+            <option>Cleaning</option><option>Household</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Price (₹)</label>
+          <input class="form-control" id="editPrice" type="number" min="0" step="0.01" />
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('editModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="updateProduct()">Save Changes</button>
+    </div>
+  </div>
+</div>
+
+<script src="/js/app.js"></script>
+<script>
+let user;
+
+(async () => {
+  user = await checkAuth();
+  if (!user) return;
+  document.getElementById('sidebar').innerHTML = buildSidebar(user, 'products');
+  document.getElementById('topbar').innerHTML = buildTopbar('📦 Products');
+  loadProducts();
+})();
+
+async function loadProducts() {
+  const res = await api('/api/products');
+  if (!res?.success) return;
+  const tbody = document.getElementById('productsTbody');
+  if (!res.data.length) {
+    tbody.innerHTML = '<tr><td colspan="5"><div class="empty-state"><div class="empty-icon">📦</div><div class="empty-title">No products found</div></div></td></tr>';
+    return;
+  }
+  tbody.innerHTML = res.data.map(p => `
+    <tr>
+      <td><span style="color:#94A3B8;font-size:12px">${p.product_id}</span></td>
+      <td><strong>${p.name}</strong></td>
+      <td><span class="badge badge-info">${p.category}</span></td>
+      <td><strong style="color:#10B981">${formatCurrency(p.price)}</strong></td>
+      <td>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-outline btn-sm" onclick="editProduct(${p.product_id},'${p.name.replace(/'/g,"\\'")}','${p.category}',${p.price})">✏️ Edit</button>
+          ${user.role==='admin' ? `<button class="btn btn-danger btn-sm" onclick="deleteProduct(${p.product_id})">🗑️</button>` : ''}
+        </div>
+      </td>
+    </tr>
+  `).join('');
+}
+
+async function addProduct() {
+  const name = document.getElementById('addName').value.trim();
+  const category = document.getElementById('addCategory').value;
+  const price = document.getElementById('addPrice').value;
+  if (!name || !category || !price) { showToast('Fill all fields', 'error'); return; }
+  const res = await api('/api/products', 'POST', { name, category, price: parseFloat(price) });
+  if (res?.success) { showToast('Product added!'); closeModal('addModal'); loadProducts(); }
+  else showToast(res?.message || 'Error', 'error');
+}
+
+function editProduct(id, name, category, price) {
+  document.getElementById('editId').value = id;
+  document.getElementById('editName').value = name;
+  document.getElementById('editCategory').value = category;
+  document.getElementById('editPrice').value = price;
+  openModal('editModal');
+}
+
+async function updateProduct() {
+  const id = document.getElementById('editId').value;
+  const name = document.getElementById('editName').value.trim();
+  const category = document.getElementById('editCategory').value;
+  const price = document.getElementById('editPrice').value;
+  const res = await api(`/api/products/${id}`, 'PUT', { name, category, price: parseFloat(price) });
+  if (res?.success) { showToast('Product updated!'); closeModal('editModal'); loadProducts(); }
+  else showToast(res?.message || 'Error', 'error');
+}
+
+async function deleteProduct(id) {
+  if (!confirm('Delete this product?')) return;
+  const res = await api(`/api/products/${id}`, 'DELETE');
+  if (res?.success) { showToast('Product deleted!'); loadProducts(); }
+  else showToast(res?.message || 'Error', 'error');
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Sales — RetailPro</title>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Sora:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+<div class="app-layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="main-content">
+    <div class="topbar" id="topbar"></div>
+    <div class="page-content">
+      <div class="page-header">
+        <div>
+          <div class="page-title">💰 Sales</div>
+          <div class="page-subtitle">Record and manage all sales transactions</div>
+        </div>
+        <div style="display:flex;gap:10px">
+          <div class="search-box">
+            <span class="search-icon">🔍</span>
+            <input class="search-input" type="text" id="searchInput" placeholder="Search sales..." oninput="filterTable('searchInput','salesTable')">
+          </div>
+          <button class="btn btn-primary" onclick="openModal('addModal')">+ New Sale</button>
+        </div>
+      </div>
+
+      <!-- Stats -->
+      <div class="stats-grid" id="saleStats" style="grid-template-columns:repeat(4,1fr)"></div>
+
+      <div class="card" style="padding:0;margin-top:16px">
+        <div class="table-wrapper">
+          <table id="salesTable">
+            <thead>
+              <tr><th>#</th><th>Product</th><th>Qty</th><th>Subtotal</th><th>GST Rate</th><th>GST Amt</th><th>Total</th><th>Date</th><th>Action</th></tr>
+            </thead>
+            <tbody id="salesTbody">
+              <tr><td colspan="9" style="text-align:center;padding:32px;color:#94A3B8">Loading...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Add Sale Modal -->
+<div class="modal-overlay" id="addModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Record New Sale</div>
+      <button class="modal-close" onclick="closeModal('addModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Product</label>
+        <select class="form-control" id="addProduct" onchange="updateGST()">
+          <option value="">Select product...</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Quantity</label>
+          <input class="form-control" id="addQty" type="number" min="1" value="1" placeholder="1" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">GST Rate (%)</label>
+          <select class="form-control" id="addGST">
+            <option value="5">5%</option>
+            <option value="12">12%</option>
+            <option value="18" selected>18%</option>
+            <option value="28">28%</option>
+            <option value="0">0% (Exempt)</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Date</label>
+        <input class="form-control" id="addDate" type="date" />
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('addModal')">Cancel</button>
+      <button class="btn btn-success" onclick="addSale()">✅ Record Sale</button>
+    </div>
+  </div>
+</div>
+
+<script src="/js/app.js"></script>
+<script>
+let userRole;
+
+(async () => {
+  const user = await checkAuth();
+  if (!user) return;
+  userRole = user.role;
+  document.getElementById('sidebar').innerHTML = buildSidebar(user, 'sales');
+  document.getElementById('topbar').innerHTML = buildTopbar('💰 Sales');
+  document.getElementById('addDate').value = new Date().toISOString().split('T')[0];
+
+  const prods = await api('/api/products');
+  if (prods?.success) {
+    document.getElementById('addProduct').innerHTML += prods.data.map(p =>
+      `<option value="${p.product_id}" data-gst="18">${p.name} (${formatCurrency(p.price)})</option>`
+    ).join('');
+  }
+
+  loadSales();
+})();
+
+async function loadSales() {
+  const res = await api('/api/sales');
+  if (!res?.success) return;
+  const data = res.data;
+
+  const totalRev = data.reduce((s, r) => s + Number(r.subtotal), 0);
+  const totalGST = data.reduce((s, r) => s + Number(r.gst_amount), 0);
+  const totalFinal = data.reduce((s, r) => s + Number(r.total), 0);
+
+  document.getElementById('saleStats').innerHTML = `
+    <div class="stat-card"><div class="stat-icon" style="background:#DBEAFE">🧾</div><div><div class="stat-value">${data.length}</div><div class="stat-label">Total Sales</div></div></div>
+    <div class="stat-card"><div class="stat-icon" style="background:#D1FAE5">💰</div><div><div class="stat-value">${formatCurrency(totalRev)}</div><div class="stat-label">Gross Revenue</div></div></div>
+    <div class="stat-card"><div class="stat-icon" style="background:#FEF3C7">🧾</div><div><div class="stat-value">${formatCurrency(totalGST)}</div><div class="stat-label">Total GST</div></div></div>
+    <div class="stat-card"><div class="stat-icon" style="background:#EDE9FE">💵</div><div><div class="stat-value">${formatCurrency(totalFinal)}</div><div class="stat-label">Net Total</div></div></div>
+  `;
+
+  const tbody = document.getElementById('salesTbody');
+  if (!data.length) {
+    tbody.innerHTML = '<tr><td colspan="9"><div class="empty-state"><div class="empty-icon">💰</div><div class="empty-title">No sales recorded</div></div></td></tr>';
+    return;
+  }
+  tbody.innerHTML = data.map(s => `
+    <tr>
+      <td><span style="color:#94A3B8;font-size:12px">#${s.sale_id}</span></td>
+      <td><strong>${s.product_name}</strong></td>
+      <td>${s.quantity}</td>
+      <td>${formatCurrency(s.subtotal)}</td>
+      <td><span class="badge badge-warning">${s.gst_rate}%</span></td>
+      <td style="color:#475569">${formatCurrency(s.gst_amount)}</td>
+      <td><strong style="color:#10B981">${formatCurrency(s.total)}</strong></td>
+      <td>${formatDate(s.date)}</td>
+      <td>${userRole==='admin' ? `<button class="btn btn-danger btn-sm" onclick="deleteSale(${s.sale_id})">🗑️</button>` : '—'}</td>
+    </tr>
+  `).join('');
+}
+
+async function addSale() {
+  const product_id = document.getElementById('addProduct').value;
+  const quantity = parseInt(document.getElementById('addQty').value);
+  const gst = parseInt(document.getElementById('addGST').value);
+  const date = document.getElementById('addDate').value;
+
+  if (!product_id || !quantity || !date) { showToast('Fill all fields', 'error'); return; }
+
+  const res = await api('/api/sales', 'POST', { product_id, quantity, gst, date });
+  if (res?.success) { showToast('Sale recorded!'); closeModal('addModal'); loadSales(); }
+  else showToast(res?.message || 'Error', 'error');
+}
+
+async function deleteSale(id) {
+  if (!confirm('Delete this sale record?')) return;
+  const res = await api(`/api/sales/${id}`, 'DELETE');
+  if (res?.success) { showToast('Sale deleted'); loadSales(); }
+  else showToast(res?.message || 'Error', 'error');
+}
+</script>
+</body>
+</html>

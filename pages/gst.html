@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>GST Report — RetailPro</title>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Sora:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+<div class="app-layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="main-content">
+    <div class="topbar" id="topbar"></div>
+    <div class="page-content">
+      <div class="page-header">
+        <div>
+          <div class="page-title">🧾 GST Report</div>
+          <div class="page-subtitle">Tax collection summary (Admin only)</div>
+        </div>
+        <div style="display:flex;gap:10px">
+          <div class="search-box">
+            <span class="search-icon">🔍</span>
+            <input class="search-input" type="text" id="searchInput" placeholder="Search..." oninput="filterTable('searchInput','gstTable')">
+          </div>
+        </div>
+      </div>
+
+      <div class="stats-grid" id="gstStats" style="grid-template-columns:repeat(4,1fr)"></div>
+
+      <!-- GST Slab Summary -->
+      <div class="card" style="margin-top:16px">
+        <div class="card-header"><div class="card-title">📊 GST Slab Breakdown</div></div>
+        <div id="slabContainer" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px"></div>
+      </div>
+
+      <div class="card" style="padding:0;margin-top:16px">
+        <div class="card-header" style="padding:16px 20px">
+          <div class="card-title">📋 All GST Transactions</div>
+        </div>
+        <div class="table-wrapper">
+          <table id="gstTable">
+            <thead>
+              <tr><th>GST ID</th><th>Transaction</th><th>Product</th><th>Qty</th><th>GST Rate</th><th>Tax Amount</th><th>Date</th></tr>
+            </thead>
+            <tbody id="gstTbody">
+              <tr><td colspan="7" style="text-align:center;padding:32px;color:#94A3B8">Loading...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="/js/app.js"></script>
+<script>
+(async () => {
+  const user = await checkAuth();
+  if (!user) return;
+  if (user.role !== 'admin') { window.location.href = '/pages/dashboard.html'; return; }
+  document.getElementById('sidebar').innerHTML = buildSidebar(user, 'gst');
+  document.getElementById('topbar').innerHTML = buildTopbar('🧾 GST Report');
+  loadGST();
+})();
+
+async function loadGST() {
+  const [gstRes, summaryRes] = await Promise.all([api('/api/gst'), api('/api/gst/summary')]);
+  if (!gstRes?.success) return;
+  const data = gstRes.data;
+  const summary = summaryRes?.data;
+
+  // Compute slab totals
+  const slabs = {};
+  data.forEach(g => {
+    const rate = g.gst_rate;
+    if (!slabs[rate]) slabs[rate] = { count: 0, total: 0 };
+    slabs[rate].count++;
+    slabs[rate].total += Number(g.tax_amount);
+  });
+
+  const totalTax = data.reduce((s, g) => s + Number(g.tax_amount), 0);
+  const cgst = totalTax / 2;
+  const sgst = totalTax / 2;
+
+  document.getElementById('gstStats').innerHTML = `
+    <div class="stat-card"><div class="stat-icon" style="background:#EDE9FE">🧾</div><div><div class="stat-value">${data.length}</div><div class="stat-label">Transactions</div></div></div>
+    <div class="stat-card"><div class="stat-icon" style="background:#FEE2E2">💰</div><div><div class="stat-value">${formatCurrency(totalTax)}</div><div class="stat-label">Total Tax</div></div></div>
+    <div class="stat-card"><div class="stat-icon" style="background:#DBEAFE">🏛️</div><div><div class="stat-value">${formatCurrency(cgst)}</div><div class="stat-label">CGST (50%)</div></div></div>
+    <div class="stat-card"><div class="stat-icon" style="background:#D1FAE5">🏛️</div><div><div class="stat-value">${formatCurrency(sgst)}</div><div class="stat-label">SGST (50%)</div></div></div>
+  `;
+
+  const slabColors = { 5:'#10B981', 12:'#2563EB', 18:'#F59E0B', 28:'#EF4444', 0:'#94A3B8' };
+  document.getElementById('slabContainer').innerHTML = Object.entries(slabs).sort((a,b)=>a[0]-b[0]).map(([rate, info]) => `
+    <div style="background:${slabColors[rate] || '#6366F1'}15;border:1px solid ${slabColors[rate] || '#6366F1'}30;border-radius:10px;padding:16px;text-align:center">
+      <div style="font-size:22px;font-weight:800;color:${slabColors[rate] || '#6366F1'};font-family:'Sora',sans-serif">${rate}%</div>
+      <div style="font-size:12px;color:#475569;margin:4px 0">GST Slab</div>
+      <div style="font-size:14px;font-weight:700;color:#0F172A">${formatCurrency(info.total)}</div>
+      <div style="font-size:11px;color:#94A3B8">${info.count} transactions</div>
+    </div>
+  `).join('');
+
+  const tbody = document.getElementById('gstTbody');
+  tbody.innerHTML = data.map(g => `
+    <tr>
+      <td><span style="color:#94A3B8;font-size:12px">#${g.gst_id}</span></td>
+      <td><span style="color:#6366F1;font-weight:600">TXN-${g.transaction_id}</span></td>
+      <td><strong>${g.product_name}</strong></td>
+      <td>${g.quantity}</td>
+      <td><span class="badge badge-warning">${g.gst_rate}%</span></td>
+      <td><strong style="color:#EF4444">${formatCurrency(g.tax_amount)}</strong></td>
+      <td>${formatDate(g.date)}</td>
+    </tr>
+  `).join('');
+}
+</script>
+</body>
+</html>

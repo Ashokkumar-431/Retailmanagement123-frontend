@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Customers — RetailPro</title>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Sora:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+<div class="app-layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="main-content">
+    <div class="topbar" id="topbar"></div>
+    <div class="page-content">
+      <div class="page-header">
+        <div>
+          <div class="page-title">👥 Customers</div>
+          <div class="page-subtitle">Manage customer accounts and balances</div>
+        </div>
+        <div style="display:flex;gap:10px">
+          <div class="search-box">
+            <span class="search-icon">🔍</span>
+            <input class="search-input" type="text" id="searchInput" placeholder="Search customers..." oninput="filterTable('searchInput','customersTable')">
+          </div>
+          <button class="btn btn-primary" onclick="openModal('addModal')">+ Add Customer</button>
+        </div>
+      </div>
+
+      <div class="stats-grid" id="custStats" style="grid-template-columns:repeat(3,1fr)"></div>
+
+      <div class="card" style="padding:0;margin-top:16px">
+        <div class="table-wrapper">
+          <table id="customersTable">
+            <thead>
+              <tr><th>#</th><th>Name</th><th>Balance</th><th>Status</th><th>Actions</th></tr>
+            </thead>
+            <tbody id="customersTbody">
+              <tr><td colspan="5" style="text-align:center;padding:32px;color:#94A3B8">Loading...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Add Modal -->
+<div class="modal-overlay" id="addModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Add New Customer</div>
+      <button class="modal-close" onclick="closeModal('addModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Customer Name</label>
+        <input class="form-control" id="addName" placeholder="Full name" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Opening Balance (₹)</label>
+        <input class="form-control" id="addBalance" type="number" min="0" step="0.01" value="0" />
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('addModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="addCustomer()">Add Customer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Modal -->
+<div class="modal-overlay" id="editModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Edit Customer</div>
+      <button class="modal-close" onclick="closeModal('editModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="editId" />
+      <div class="form-group">
+        <label class="form-label">Customer Name</label>
+        <input class="form-control" id="editName" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Balance (₹)</label>
+        <input class="form-control" id="editBalance" type="number" min="0" step="0.01" />
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('editModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="updateCustomer()">Save Changes</button>
+    </div>
+  </div>
+</div>
+
+<script src="/js/app.js"></script>
+<script>
+let userRole;
+
+(async () => {
+  const user = await checkAuth();
+  if (!user) return;
+  userRole = user.role;
+  document.getElementById('sidebar').innerHTML = buildSidebar(user, 'customers');
+  document.getElementById('topbar').innerHTML = buildTopbar('👥 Customers');
+  loadCustomers();
+})();
+
+async function loadCustomers() {
+  const res = await api('/api/customers');
+  if (!res?.success) return;
+  const data = res.data;
+
+  const withBalance = data.filter(c => c.balance > 0).length;
+  const totalBalance = data.reduce((s, c) => s + Number(c.balance), 0);
+
+  document.getElementById('custStats').innerHTML = `
+    <div class="stat-card"><div class="stat-icon" style="background:#DBEAFE">👥</div><div><div class="stat-value">${data.length}</div><div class="stat-label">Total Customers</div></div></div>
+    <div class="stat-card"><div class="stat-icon" style="background:#D1FAE5">💚</div><div><div class="stat-value">${withBalance}</div><div class="stat-label">With Balance</div></div></div>
+    <div class="stat-card"><div class="stat-icon" style="background:#FEF3C7">💰</div><div><div class="stat-value">${formatCurrency(totalBalance)}</div><div class="stat-label">Total Pending</div></div></div>
+  `;
+
+  const tbody = document.getElementById('customersTbody');
+  tbody.innerHTML = data.map(c => `
+    <tr>
+      <td><span style="color:#94A3B8;font-size:12px">${c.customer_id}</span></td>
+      <td>
+        <div style="display:flex;align-items:center;gap:8px">
+          <div style="width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,#2563EB,#6366F1);display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:12px;flex-shrink:0">${c.name.charAt(0)}</div>
+          <strong>${c.name}</strong>
+        </div>
+      </td>
+      <td><strong style="color:${c.balance > 0 ? '#F59E0B' : '#10B981'}">${formatCurrency(c.balance)}</strong></td>
+      <td><span class="badge ${c.balance > 0 ? 'badge-warning' : 'badge-success'}">${c.balance > 0 ? '⏳ Pending' : '✅ Clear'}</span></td>
+      <td>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-outline btn-sm" onclick="editCustomer(${c.customer_id},'${c.name.replace(/'/g,"\\'")}',${c.balance})">✏️ Edit</button>
+          ${userRole==='admin' ? `<button class="btn btn-danger btn-sm" onclick="deleteCustomer(${c.customer_id})">🗑️</button>` : ''}
+        </div>
+      </td>
+    </tr>
+  `).join('');
+}
+
+async function addCustomer() {
+  const name = document.getElementById('addName').value.trim();
+  const balance = parseFloat(document.getElementById('addBalance').value || 0);
+  if (!name) { showToast('Name is required', 'error'); return; }
+  const res = await api('/api/customers', 'POST', { name, balance });
+  if (res?.success) { showToast('Customer added!'); closeModal('addModal'); loadCustomers(); }
+  else showToast(res?.message || 'Error', 'error');
+}
+
+function editCustomer(id, name, balance) {
+  document.getElementById('editId').value = id;
+  document.getElementById('editName').value = name;
+  document.getElementById('editBalance').value = balance;
+  openModal('editModal');
+}
+
+async function updateCustomer() {
+  const id = document.getElementById('editId').value;
+  const name = document.getElementById('editName').value.trim();
+  const balance = parseFloat(document.getElementById('editBalance').value || 0);
+  const res = await api(`/api/customers/${id}`, 'PUT', { name, balance });
+  if (res?.success) { showToast('Customer updated!'); closeModal('editModal'); loadCustomers(); }
+  else showToast(res?.message || 'Error', 'error');
+}
+
+async function deleteCustomer(id) {
+  if (!confirm('Delete this customer?')) return;
+  const res = await api(`/api/customers/${id}`, 'DELETE');
+  if (res?.success) { showToast('Customer deleted'); loadCustomers(); }
+  else showToast(res?.message || 'Error', 'error');
+}
+</script>
+</body>
+</html>

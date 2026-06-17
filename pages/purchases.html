@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Purchases — RetailPro</title>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Sora:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+<div class="app-layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="main-content">
+    <div class="topbar" id="topbar"></div>
+    <div class="page-content">
+      <div class="page-header">
+        <div>
+          <div class="page-title">🛒 Purchases</div>
+          <div class="page-subtitle">Track all purchases from suppliers</div>
+        </div>
+        <div style="display:flex;gap:10px">
+          <div class="search-box">
+            <span class="search-icon">🔍</span>
+            <input class="search-input" type="text" id="searchInput" placeholder="Search purchases..." oninput="filterTable('searchInput','purchasesTable')">
+          </div>
+          <button class="btn btn-primary" onclick="openModal('addModal')">+ New Purchase</button>
+        </div>
+      </div>
+
+      <div class="stats-grid" id="purchaseStats" style="grid-template-columns:repeat(3,1fr)"></div>
+
+      <div class="card" style="padding:0;margin-top:16px">
+        <div class="table-wrapper">
+          <table id="purchasesTable">
+            <thead>
+              <tr><th>#</th><th>Supplier</th><th>Product</th><th>Qty</th><th>Cost/Unit</th><th>Total Cost</th><th>Date</th><th>Action</th></tr>
+            </thead>
+            <tbody id="purchasesTbody">
+              <tr><td colspan="8" style="text-align:center;padding:32px;color:#94A3B8">Loading...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Add Purchase Modal -->
+<div class="modal-overlay" id="addModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Record New Purchase</div>
+      <button class="modal-close" onclick="closeModal('addModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Supplier</label>
+        <select class="form-control" id="addSupplier">
+          <option value="">Select supplier...</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Product</label>
+        <select class="form-control" id="addProduct">
+          <option value="">Select product...</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Quantity</label>
+          <input class="form-control" id="addQty" type="number" min="1" value="1" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Cost per Unit (₹)</label>
+          <input class="form-control" id="addCost" type="number" min="0" step="0.01" placeholder="0.00" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Date</label>
+        <input class="form-control" id="addDate" type="date" />
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('addModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="addPurchase()">✅ Record Purchase</button>
+    </div>
+  </div>
+</div>
+
+<script src="/js/app.js"></script>
+<script>
+let userRole;
+
+(async () => {
+  const user = await checkAuth();
+  if (!user) return;
+  userRole = user.role;
+  document.getElementById('sidebar').innerHTML = buildSidebar(user, 'purchases');
+  document.getElementById('topbar').innerHTML = buildTopbar('🛒 Purchases');
+  document.getElementById('addDate').value = new Date().toISOString().split('T')[0];
+
+  const [suppliers, products] = await Promise.all([api('/api/suppliers'), api('/api/products')]);
+  if (suppliers?.success) {
+    document.getElementById('addSupplier').innerHTML += suppliers.data.map(s =>
+      `<option value="${s.supplier_id}">${s.name}</option>`).join('');
+  }
+  if (products?.success) {
+    document.getElementById('addProduct').innerHTML += products.data.map(p =>
+      `<option value="${p.product_id}">${p.name}</option>`).join('');
+  }
+
+  loadPurchases();
+})();
+
+async function loadPurchases() {
+  const res = await api('/api/purchases');
+  if (!res?.success) return;
+  const data = res.data;
+
+  const totalSpend = data.reduce((s, r) => s + Number(r.cost) * Number(r.quantity), 0);
+  document.getElementById('purchaseStats').innerHTML = `
+    <div class="stat-card"><div class="stat-icon" style="background:#DBEAFE">🛒</div><div><div class="stat-value">${data.length}</div><div class="stat-label">Total Purchases</div></div></div>
+    <div class="stat-card"><div class="stat-icon" style="background:#FEE2E2">💸</div><div><div class="stat-value">${formatCurrency(totalSpend)}</div><div class="stat-label">Total Spend</div></div></div>
+    <div class="stat-card"><div class="stat-icon" style="background:#D1FAE5">📦</div><div><div class="stat-value">${data.reduce((s, r) => s + r.quantity, 0)}</div><div class="stat-label">Units Purchased</div></div></div>
+  `;
+
+  const tbody = document.getElementById('purchasesTbody');
+  if (!data.length) {
+    tbody.innerHTML = '<tr><td colspan="8"><div class="empty-state"><div class="empty-icon">🛒</div><div class="empty-title">No purchases yet</div></div></td></tr>';
+    return;
+  }
+  tbody.innerHTML = data.map(p => `
+    <tr>
+      <td><span style="color:#94A3B8;font-size:12px">#${p.purchase_id}</span></td>
+      <td><strong>${p.supplier_name}</strong></td>
+      <td>${p.product_name}</td>
+      <td>${p.quantity}</td>
+      <td>${formatCurrency(p.cost)}</td>
+      <td><strong style="color:#2563EB">${formatCurrency(p.cost * p.quantity)}</strong></td>
+      <td>${formatDate(p.date)}</td>
+      <td>${userRole==='admin' ? `<button class="btn btn-danger btn-sm" onclick="deletePurchase(${p.purchase_id})">🗑️</button>` : '—'}</td>
+    </tr>
+  `).join('');
+}
+
+async function addPurchase() {
+  const supplier_id = document.getElementById('addSupplier').value;
+  const product_id = document.getElementById('addProduct').value;
+  const quantity = parseInt(document.getElementById('addQty').value);
+  const cost = parseFloat(document.getElementById('addCost').value);
+  const date = document.getElementById('addDate').value;
+
+  if (!supplier_id || !product_id || !quantity || !cost || !date) { showToast('Fill all fields', 'error'); return; }
+  const res = await api('/api/purchases', 'POST', { supplier_id, product_id, quantity, cost, date });
+  if (res?.success) { showToast('Purchase recorded!'); closeModal('addModal'); loadPurchases(); }
+  else showToast(res?.message || 'Error', 'error');
+}
+
+async function deletePurchase(id) {
+  if (!confirm('Delete this purchase?')) return;
+  const res = await api(`/api/purchases/${id}`, 'DELETE');
+  if (res?.success) { showToast('Purchase deleted'); loadPurchases(); }
+  else showToast(res?.message || 'Error', 'error');
+}
+</script>
+</body>
+</html>

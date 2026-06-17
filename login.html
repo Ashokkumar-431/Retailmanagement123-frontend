@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Login — RetailPro</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Sora:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --primary: #2563EB;
+      --primary-dark: #1D4ED8;
+      --accent: #F59E0B;
+      --bg: #F0F4FF;
+      --surface: #FFFFFF;
+      --border: #E2E8F0;
+      --text: #0F172A;
+      --text-muted: #94A3B8;
+      --text-secondary: #475569;
+      --danger: #EF4444;
+      --success: #10B981;
+    }
+
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background: var(--bg);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Decorative background */
+    body::before {
+      content: '';
+      position: fixed;
+      top: -40%;
+      right: -20%;
+      width: 700px;
+      height: 700px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(37,99,235,0.08) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    body::after {
+      content: '';
+      position: fixed;
+      bottom: -30%;
+      left: -10%;
+      width: 500px;
+      height: 500px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(245,158,11,0.07) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    .login-page {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      width: 100%;
+      max-width: 960px;
+      min-height: 560px;
+      border-radius: 24px;
+      overflow: hidden;
+      box-shadow: 0 25px 50px rgba(0,0,0,0.12);
+      position: relative;
+      z-index: 1;
+    }
+
+    /* Left side branding */
+    .login-brand {
+      background: linear-gradient(145deg, #1E40AF 0%, #2563EB 50%, #3B82F6 100%);
+      padding: 48px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      color: white;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .brand-bg-circles {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+    }
+
+    .brand-bg-circles .c1 {
+      position: absolute;
+      width: 300px; height: 300px;
+      border-radius: 50%;
+      border: 1px solid rgba(255,255,255,0.08);
+      top: -80px; right: -80px;
+    }
+
+    .brand-bg-circles .c2 {
+      position: absolute;
+      width: 200px; height: 200px;
+      border-radius: 50%;
+      border: 1px solid rgba(255,255,255,0.06);
+      bottom: 20px; left: -60px;
+    }
+
+    .brand-bg-circles .c3 {
+      position: absolute;
+      width: 150px; height: 150px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.04);
+      bottom: 100px; right: 20px;
+    }
+
+    .brand-logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-logo-icon {
+      width: 44px; height: 44px;
+      background: rgba(255,255,255,0.15);
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 22px;
+    }
+
+    .brand-logo-text {
+      font-family: 'Sora', sans-serif;
+      font-size: 20px;
+      font-weight: 800;
+      letter-spacing: -0.3px;
+    }
+
+    .brand-logo-sub {
+      font-size: 11px;
+      opacity: 0.7;
+      font-weight: 400;
+    }
+
+    .brand-main { position: relative; }
+
+    .brand-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(255,255,255,0.12);
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 20px;
+      padding: 5px 12px;
+      font-size: 11.5px;
+      font-weight: 600;
+      margin-bottom: 20px;
+    }
+
+    .brand-tag .dot {
+      width: 6px; height: 6px;
+      background: #4ADE80;
+      border-radius: 50%;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.7; transform: scale(0.8); }
+    }
+
+    .brand-headline {
+      font-family: 'Sora', sans-serif;
+      font-size: 32px;
+      font-weight: 800;
+      line-height: 1.2;
+      margin-bottom: 16px;
+      letter-spacing: -0.5px;
+    }
+
+    .brand-headline span {
+      display: block;
+      color: #93C5FD;
+    }
+
+    .brand-desc {
+      font-size: 14px;
+      line-height: 1.6;
+      opacity: 0.8;
+      max-width: 280px;
+    }
+
+    .brand-features {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      position: relative;
+    }
+
+    .brand-feature {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 13px;
+      opacity: 0.9;
+    }
+
+    .brand-feature .ficon {
+      width: 28px; height: 28px;
+      background: rgba(255,255,255,0.12);
+      border-radius: 7px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px;
+      flex-shrink: 0;
+    }
+
+    /* Right side form */
+    .login-form-side {
+      background: white;
+      padding: 48px 44px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    .form-header { margin-bottom: 32px; }
+
+    .form-title {
+      font-family: 'Sora', sans-serif;
+      font-size: 26px;
+      font-weight: 800;
+      color: #0F172A;
+      margin-bottom: 8px;
+      letter-spacing: -0.3px;
+    }
+
+    .form-subtitle { font-size: 14px; color: #64748B; }
+
+    .role-tabs {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 28px;
+      background: #F8FAFC;
+      padding: 4px;
+      border-radius: 10px;
+      border: 1px solid #E2E8F0;
+    }
+
+    .role-tab {
+      padding: 9px;
+      border-radius: 7px;
+      text-align: center;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 600;
+      color: #64748B;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+
+    .role-tab.active {
+      background: white;
+      color: #2563EB;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+
+    .input-group { margin-bottom: 18px; }
+
+    .input-label {
+      display: block;
+      font-size: 12.5px;
+      font-weight: 700;
+      color: #374151;
+      margin-bottom: 7px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .input-wrapper {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+
+    .input-prefix {
+      position: absolute;
+      left: 13px;
+      color: #94A3B8;
+      pointer-events: none;
+      font-size: 16px;
+    }
+
+    .input-field {
+      width: 100%;
+      padding: 11px 14px 11px 40px;
+      border: 1.5px solid #E2E8F0;
+      border-radius: 10px;
+      font-family: inherit;
+      font-size: 14px;
+      color: #0F172A;
+      outline: none;
+      transition: all 0.2s;
+      background: #F8FAFC;
+    }
+
+    .input-field:focus {
+      border-color: #2563EB;
+      background: white;
+      box-shadow: 0 0 0 3px rgba(37,99,235,0.1);
+    }
+
+    .toggle-password {
+      position: absolute;
+      right: 13px;
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: #94A3B8;
+      font-size: 16px;
+      padding: 0;
+      line-height: 1;
+      transition: color 0.15s;
+    }
+    .toggle-password:hover { color: #475569; }
+
+    .error-msg {
+      display: none;
+      background: #FEF2F2;
+      border: 1px solid #FECACA;
+      color: #EF4444;
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      margin-bottom: 16px;
+      align-items: center;
+      gap: 7px;
+    }
+    .error-msg.visible { display: flex; }
+
+    .submit-btn {
+      width: 100%;
+      padding: 13px;
+      background: linear-gradient(135deg, #2563EB, #3B82F6);
+      color: white;
+      border: none;
+      border-radius: 10px;
+      font-family: 'Sora', sans-serif;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s;
+      margin-top: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .submit-btn:hover {
+      background: linear-gradient(135deg, #1D4ED8, #2563EB);
+      box-shadow: 0 8px 20px rgba(37,99,235,0.35);
+      transform: translateY(-1px);
+    }
+
+    .submit-btn:active { transform: translateY(0); }
+
+    .demo-hint {
+      margin-top: 20px;
+      padding: 12px 14px;
+      background: #F0F9FF;
+      border: 1px solid #BAE6FD;
+      border-radius: 8px;
+      font-size: 12px;
+      color: #0369A1;
+    }
+
+    .demo-hint strong { display: block; margin-bottom: 4px; color: #0284C7; }
+
+    @media (max-width: 700px) {
+      .login-page { grid-template-columns: 1fr; max-width: 440px; }
+      .login-brand { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="login-page">
+  <!-- Branding left -->
+  <div class="login-brand">
+    <div class="brand-bg-circles">
+      <div class="c1"></div>
+      <div class="c2"></div>
+      <div class="c3"></div>
+    </div>
+
+    <div class="brand-logo">
+      <div class="brand-logo-icon">🛒</div>
+      <div>
+        <div class="brand-logo-text">RetailPro</div>
+        <div class="brand-logo-sub">Management System</div>
+      </div>
+    </div>
+
+    <div class="brand-main">
+      <div class="brand-tag">
+        <div class="dot"></div>
+        v1.0 — Live System
+      </div>
+      <h1 class="brand-headline">
+        Smart Retail
+        <span>Management</span>
+      </h1>
+      <p class="brand-desc">
+        Complete control over your inventory, sales, purchases, customers, and GST reporting — all in one place.
+      </p>
+    </div>
+
+    <div class="brand-features">
+      <div class="brand-feature"><div class="ficon">📦</div> Inventory & Stock Tracking</div>
+      <div class="brand-feature"><div class="ficon">💰</div> Sales & Purchase Management</div>
+      <div class="brand-feature"><div class="ficon">🧾</div> GST Reports & Compliance</div>
+      <div class="brand-feature"><div class="ficon">📊</div> Dashboard Analytics</div>
+    </div>
+  </div>
+
+  <!-- Form right -->
+  <div class="login-form-side">
+    <div class="form-header">
+      <h2 class="form-title">Welcome back 👋</h2>
+      <p class="form-subtitle">Sign in to access your retail dashboard</p>
+    </div>
+
+    <div class="role-tabs">
+      <div class="role-tab active" onclick="setRole('admin')">
+        🔑 Admin
+      </div>
+      <div class="role-tab" onclick="setRole('staff')">
+        👤 Staff
+      </div>
+    </div>
+
+    <div class="error-msg" id="errorMsg">
+      <span>⚠️</span>
+      <span id="errorText">Invalid username or password.</span>
+    </div>
+
+    <div class="input-group">
+      <label class="input-label">Username</label>
+      <div class="input-wrapper">
+        <span class="input-prefix">👤</span>
+        <input type="text" class="input-field" id="username" placeholder="Enter username" autocomplete="username" />
+      </div>
+    </div>
+
+    <div class="input-group">
+      <label class="input-label">Password</label>
+      <div class="input-wrapper">
+        <span class="input-prefix">🔒</span>
+        <input type="password" class="input-field" id="password" placeholder="Enter password" autocomplete="current-password" />
+        <button class="toggle-password" onclick="togglePwd()" id="toggleBtn">👁️</button>
+      </div>
+    </div>
+
+    <button class="submit-btn" onclick="doLogin()">
+      <span id="btnText">Sign In</span>
+      <span id="btnArrow">→</span>
+    </button>
+
+    <div class="demo-hint">
+      <strong>🎯 Demo Credentials</strong>
+      Admin: <code>admin / 1234</code> &nbsp;|&nbsp; Staff: <code>staff1 / 1234</code>
+    </div>
+  </div>
+</div>
+
+<script>
+  let showPwd = false;
+
+  function setRole(role) {
+    document.querySelectorAll('.role-tab').forEach(t => t.classList.remove('active'));
+    event.currentTarget.classList.add('active');
+    document.getElementById('username').value = role === 'admin' ? 'admin' : 'staff1';
+    document.getElementById('password').value = '';
+    document.getElementById('password').focus();
+  }
+
+  function togglePwd() {
+    showPwd = !showPwd;
+    const pwd = document.getElementById('password');
+    pwd.type = showPwd ? 'text' : 'password';
+    document.getElementById('toggleBtn').textContent = showPwd ? '🙈' : '👁️';
+  }
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Enter') doLogin();
+  });
+
+  async function doLogin() {
+    const username = document.getElementById('username').value.trim();
+    const password = document.getElementById('password').value;
+    const btn = document.querySelector('.submit-btn');
+
+    if (!username || !password) {
+      showError('Please enter both username and password.');
+      return;
+    }
+
+    btn.disabled = true;
+    document.getElementById('btnText').textContent = 'Signing in...';
+    document.getElementById('btnArrow').textContent = '⏳';
+    hideError();
+
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password }),
+        credentials: 'include'
+      });
+
+      const data = await res.json();
+
+      if (data.success) {
+        document.getElementById('btnText').textContent = 'Success!';
+        document.getElementById('btnArrow').textContent = '✅';
+        setTimeout(() => {
+          window.location.href = '/pages/dashboard.html';
+        }, 500);
+      } else {
+        showError(data.message || 'Invalid credentials.');
+        resetBtn();
+      }
+    } catch (err) {
+      showError('Cannot connect to server. Make sure backend is running.');
+      resetBtn();
+    }
+  }
+
+  function showError(msg) {
+    document.getElementById('errorText').textContent = msg;
+    document.getElementById('errorMsg').classList.add('visible');
+  }
+
+  function hideError() {
+    document.getElementById('errorMsg').classList.remove('visible');
+  }
+
+  function resetBtn() {
+    const btn = document.querySelector('.submit-btn');
+    btn.disabled = false;
+    document.getElementById('btnText').textContent = 'Sign In';
+    document.getElementById('btnArrow').textContent = '→';
+  }
+</script>
+
+</body>
+</html>
